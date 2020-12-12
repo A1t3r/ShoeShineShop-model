@@ -6,9 +6,9 @@ C_SIZE = 100
 timer = 0
 _lambda = 5  # интенсивность прихода требования
 _ksi = 8  # интенсивность обслуживания
-global served
-
-event = threading.Event()
+served = False
+checked = False
+uptime = False
 
 logger_dict = {
     'Entrance time': [],
@@ -54,22 +54,28 @@ class Chair_1:
 
     def serving1(self, timerl, client):
         global served
+        global checked
+        global uptime
         while 1:
-            #event.wait()
-            #print('1 - ', timer,"\n")
+            event2.set()
+            print('11 - ', timer, "\n")
+            event1.wait()
             if (timer - timerl) % _ksi == 0 and (timer - timerl) != 0:
                 client.time_on_the_first_chair = timer - timerl
                 served = True
+                print(client.time_on_the_first_chair)
                 return
+            event2.clear()
 
 
     def serving2(self, timerl, client):
         while 1:
-            #event.wait()
-            #print('2 - ', timer,"\n")
+            # event.wait()
+            # print('2 - ', timer,"\n")
             if (timer - timerl) % _ksi == 0 and (timer - timerl) != 0:
                 client.time_on_the_second_chair = timer - timerl
                 return
+
 
 class Chair_2:
     entrance_time = None
@@ -90,15 +96,27 @@ class Chair_2:
 chair1 = Chair_1()
 chair2 = Chair_1()
 
-served2 = False
+served = False
 Added = False
 
 clients = []
 timer = 0
 gl_id = 0
 ex_time = 0
+lock = threading.Lock()
+cv = threading.Condition()
+event1 = threading.Event()
+event2 = threading.Event()
 
 for timer in range(C_SIZE):
+    print(timer)
+    if timer != 0:
+        event1.clear()
+        event2.wait()
+        checked = False
+        event1.set()
+    else:
+        event1.set()
 
     if timer % _lambda == 0 and not chair1.is_busy:  # Поступление запроса Если занят первый стул то запрос отклоняется
         clients.append(Client(gl_id, timer))
@@ -109,10 +127,9 @@ for timer in range(C_SIZE):
             chair1.is_busy = True
             x = threading.Thread(target=chair1.serving1, args=(timer, cur_clients['first chair'],))
             x.start()
-            chair1.is_busy = False
-            served = True
-            if served:
+            if served and False:
 
+                chair1.is_busy = False
                 served = False
 
                 if not chair2.is_busy and served:

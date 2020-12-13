@@ -1,11 +1,11 @@
-import logging
 import threading
 import time
 
-C_SIZE = 100
+C_SIZE = 20
 timer = 0
-_lambda = 5  # интенсивность прихода требования
-_ksi = 8  # интенсивность обслуживания
+_lambda = 3  # интенсивность прихода требования
+_ksi1 = 5  # время обслуживания
+_ksi2 = 4  # время обслуживания
 served = False
 checked = False
 uptime = False
@@ -23,7 +23,8 @@ logger_list = []
 
 class Client:
     id = None
-    entrance_time = None
+    entrance_time_first = None
+    entrance_time_second = None
     exit_time = None
     time_on_the_first_chair = None
     time_on_the_second_chair = None
@@ -34,8 +35,9 @@ class Client:
         self.entrance_time = _entrance_time
 
     def give_info(self):
-        return [self.id, self.entrance_time, self.time_on_the_first_chair,
-                self.time_on_the_second_chair, self.time_in_queue, self.exit_time]
+        return [self.id, self.entrance_time_first, self.time_on_the_first_chair,
+                self.entrance_time_second, self.time_on_the_second_chair,
+                self.time_in_queue, self.exit_time]
 
 
 cur_clients = {
@@ -44,7 +46,20 @@ cur_clients = {
 }
 
 
-class Chair_1:
+def serving(client, chair1, chair2):
+        chair1.serving1(client)
+        if chair2.is_busy:
+            print("client", client.id, "is waiting for second chair")
+            #start = time.clock_gettime()
+        else:
+            chair1.is_busy = False
+            chair2.serving2(client)
+            client.exit_time = client.entrance_time_second + client.time_on_the_second_chair
+            logger_list.append(client)
+        return
+
+
+class Chair:
     entrance_time = None
     exit_time = None
     is_busy = False
@@ -52,49 +67,31 @@ class Chair_1:
     def __init__(self):
         pass
 
-    def serving1(self, timerl, client):
-        global served
-        global checked
-        global uptime
-        while 1:
-            event2.set()
-            print('11 - ', timer, "\n")
-            event1.wait()
-            if (timer - timerl) % _ksi == 0 and (timer - timerl) != 0:
-                client.time_on_the_first_chair = timer - timerl
-                served = True
-                print(client.time_on_the_first_chair)
-                return
-            event2.clear()
+
+    def serving1(self, client):
+        self.is_busy=True
+        print('start serving client', client.id, 'on first', " in ", client.entrance_time_first, "\n")
+        time.sleep(_ksi1)
+        client.time_on_the_first_chair = _ksi1
+        served = True
+        print("client {} is served on first, total time - {}".format(client.id, client.time_on_the_first_chair))
+        #self.is_busy = False
+        return
 
 
-    def serving2(self, timerl, client):
-        while 1:
-            # event.wait()
-            # print('2 - ', timer,"\n")
-            if (timer - timerl) % _ksi == 0 and (timer - timerl) != 0:
-                client.time_on_the_second_chair = timer - timerl
-                return
+    def serving2(self, client):
+        self.is_busy=True
+        client.entrance_time_second = client.entrance_time_first + client.time_on_the_first_chair
+        print('start serving client on second', client.id, " in ", client.entrance_time_second, "\n")
+        time.sleep(_ksi2)
+        client.time_on_the_second_chair = _ksi2
+        print("client {} is served on second, total time - {}".format(client.id, client.time_on_the_second_chair))
+        self.is_busy = False
+        return
 
 
-class Chair_2:
-    entrance_time = None
-    exit_time = None
-    is_busy = False
-
-    def __init__(self):
-        pass
-
-    def serving(self, _timer):
-        while 1:
-            if _timer != 0 and _timer % _ksi == 0:
-                self.exit_time = _timer
-                return True
-            return False
-
-
-chair1 = Chair_1()
-chair2 = Chair_1()
+chair1 = Chair()
+chair2 = Chair()
 
 served = False
 Added = False
@@ -103,47 +100,22 @@ clients = []
 timer = 0
 gl_id = 0
 ex_time = 0
-lock = threading.Lock()
-cv = threading.Condition()
-event1 = threading.Event()
-event2 = threading.Event()
 
-for timer in range(C_SIZE):
-    print(timer)
-    if timer != 0:
-        event1.clear()
-        event2.wait()
-        checked = False
-        event1.set()
+for c in range(C_SIZE):
+    if c != 0:
+        time.sleep(_lambda) # waiting for client
+    print("got new client! cur time = ", c * _lambda)
+    if chair1.is_busy:
+        print("client rejected chair is busy")
     else:
-        event1.set()
-
-    if timer % _lambda == 0 and not chair1.is_busy:  # Поступление запроса Если занят первый стул то запрос отклоняется
         clients.append(Client(gl_id, timer))
         gl_id += 1
+        cur_clients['first chair'] = clients[len(clients) - 1]
+        cur_clients['first chair'].entrance_time_first = c * _lambda
+        x = threading.Thread(target=serving, args=(cur_clients['first chair'], chair1, chair2,))
+        x.start()
 
-        if not chair1.is_busy:
-            cur_clients['first chair'] = clients[len(clients) - 1]
-            chair1.is_busy = True
-            x = threading.Thread(target=chair1.serving1, args=(timer, cur_clients['first chair'],))
-            x.start()
-            if served and False:
-
-                chair1.is_busy = False
-                served = False
-
-                if not chair2.is_busy and served:
-                    cur_clients['second chair'] = cur_clients['first chair']
-                    chair2.is_busy = True
-                    y = threading.Thread(target=chair2.serving2, args=(timer, cur_clients['second chair'],))
-                    y.start()
-                    chair2.is_busy = False
-                    cur_clients['second chair'].exit_time = timer
-                    logger_list.append(cur_clients['second chair'])
-
-                else:
-                    chair1.is_busy = True
-                    cur_clients['first chair'].time_in_queue += 1
-
+x.join()
+print("id| entrance_time_first | time_on_the_first_chair | entrance_time_second | time_on_the_second_chair | time_in_queue | exit_time")
 for k in logger_list:
     print(k.give_info())

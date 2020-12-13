@@ -4,8 +4,8 @@ import time
 C_SIZE = 20
 timer = 0
 _lambda = 3  # интенсивность прихода требования
-_ksi1 = 5  # время обслуживания
-_ksi2 = 4  # время обслуживания
+_ksi1 = 4  # время обслуживания
+_ksi2 = 8  # время обслуживания
 served = False
 checked = False
 uptime = False
@@ -36,8 +36,8 @@ class Client:
 
     def give_info(self):
         return [self.id, self.entrance_time_first, self.time_on_the_first_chair,
-                self.entrance_time_second, self.time_on_the_second_chair,
-                self.time_in_queue, self.exit_time]
+                self.time_in_queue, self.entrance_time_second,
+                self.time_on_the_second_chair, self.exit_time]
 
 
 cur_clients = {
@@ -47,16 +47,24 @@ cur_clients = {
 
 
 def serving(client, chair1, chair2):
-        chair1.serving1(client)
-        if chair2.is_busy:
-            print("client", client.id, "is waiting for second chair")
-            #start = time.clock_gettime()
-        else:
-            chair1.is_busy = False
-            chair2.serving2(client)
-            client.exit_time = client.entrance_time_second + client.time_on_the_second_chair
-            logger_list.append(client)
-        return
+    chair1.serving1(client)
+
+    if chair2.is_busy:
+        print("client", client.id, "is waiting for second chair")
+        start = time.time()
+        ###
+        e.wait()
+        end = time.time()
+        client.time_in_queue = end - start
+        print("client - {}, time in queue {}".format(client.id, client.time_in_queue))
+
+    e.clear()
+    chair1.is_busy = False
+    chair2.serving2(client)
+    client.exit_time = client.entrance_time_second + client.time_on_the_second_chair
+    logger_list.append(client)
+    e.set()
+    return
 
 
 class Chair:
@@ -67,21 +75,19 @@ class Chair:
     def __init__(self):
         pass
 
-
     def serving1(self, client):
-        self.is_busy=True
+        self.is_busy = True
         print('start serving client', client.id, 'on first', " in ", client.entrance_time_first, "\n")
         time.sleep(_ksi1)
         client.time_on_the_first_chair = _ksi1
         served = True
         print("client {} is served on first, total time - {}".format(client.id, client.time_on_the_first_chair))
-        #self.is_busy = False
+        # self.is_busy = False
         return
 
-
     def serving2(self, client):
-        self.is_busy=True
-        client.entrance_time_second = client.entrance_time_first + client.time_on_the_first_chair
+        self.is_busy = True
+        client.entrance_time_second = client.entrance_time_first + client.time_on_the_first_chair + client.time_in_queue
         print('start serving client on second', client.id, " in ", client.entrance_time_second, "\n")
         time.sleep(_ksi2)
         client.time_on_the_second_chair = _ksi2
@@ -99,11 +105,11 @@ Added = False
 clients = []
 timer = 0
 gl_id = 0
-ex_time = 0
+e = threading.Event()
 
 for c in range(C_SIZE):
     if c != 0:
-        time.sleep(_lambda) # waiting for client
+        time.sleep(_lambda)  # waiting for client
     print("got new client! cur time = ", c * _lambda)
     if chair1.is_busy:
         print("client rejected chair is busy")
@@ -116,6 +122,7 @@ for c in range(C_SIZE):
         x.start()
 
 x.join()
-print("id| entrance_time_first | time_on_the_first_chair | entrance_time_second | time_on_the_second_chair | time_in_queue | exit_time")
+print(
+    "id| entrance_time_first | time_on_the_first_chair |  time_in_queue | entrance_time_second | time_on_the_second_chair | exit_time")
 for k in logger_list:
     print(k.give_info())

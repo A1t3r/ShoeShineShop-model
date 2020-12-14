@@ -1,11 +1,8 @@
 import threading
 import time
+import random
 
-C_SIZE = 20
-timer = 0
-_lambda = 3  # интенсивность прихода требования
-_ksi1 = 4  # время обслуживания
-_ksi2 = 8  # время обслуживания
+C_SIZE = 15
 served = False
 checked = False
 uptime = False
@@ -88,7 +85,7 @@ class Chair:
     def serving2(self, client):
         self.is_busy = True
         client.entrance_time_second = client.entrance_time_first + client.time_on_the_first_chair + client.time_in_queue
-        print('start serving client on second', client.id, " in ", client.entrance_time_second, "\n")
+        print('start serving client', client.id, ' on second', " in ", client.entrance_time_second)
         time.sleep(_ksi2)
         client.time_on_the_second_chair = _ksi2
         print("client {} is served on second, total time - {}".format(client.id, client.time_on_the_second_chair))
@@ -99,30 +96,48 @@ class Chair:
 chair1 = Chair()
 chair2 = Chair()
 
-served = False
 Added = False
 
 clients = []
 timer = 0
-gl_id = 0
+gl_id = 1
 e = threading.Event()
+
+### init vars
+
+lmb = 1 / 2
+
+_lambda = random.expovariate(lmb)
+_ksi1 = random.expovariate(lmb)
+_ksi2 = random.expovariate(lmb)
+
+print('интенсивность поступления заявок - {}, интенсивность обслуживания(1 стул) - {},'
+      ' интенсивность обслуживания(2 стул) - {}'.format(_lambda, _ksi1, _ksi2))
+
+num_of_rejected = 0
+num_of_served = 0
 
 for c in range(C_SIZE):
     if c != 0:
         time.sleep(_lambda)  # waiting for client
     print("got new client! cur time = ", c * _lambda)
     if chair1.is_busy:
+        num_of_rejected += 1
         print("client rejected chair is busy")
     else:
+        num_of_served += 1
         clients.append(Client(gl_id, timer))
         gl_id += 1
-        cur_clients['first chair'] = clients[len(clients) - 1]
+        cur_clients['first chair'] = clients[len(clients) - 1]  # remove?
         cur_clients['first chair'].entrance_time_first = c * _lambda
         x = threading.Thread(target=serving, args=(cur_clients['first chair'], chair1, chair2,))
         x.start()
 
 x.join()
+print("всего клиентов - {}, отклонено - {}, обслужено - {}".format(num_of_served + num_of_rejected,
+                                                                   num_of_rejected, num_of_served))
 print(
-    "id| entrance_time_first | time_on_the_first_chair |  time_in_queue | entrance_time_second | time_on_the_second_chair | exit_time")
+    "id| entrance_time_first | time_on_the_first_chair |  time_in_queue | "
+    "entrance_time_second | time_on_the_second_chair | exit_time")
 for k in logger_list:
     print(k.give_info())

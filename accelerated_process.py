@@ -142,6 +142,7 @@ num_of_served = 0
 program_start = time.time()
 time_lambda=time.time()
 persentage = 10
+print("|    |50%|")
 
 for c in range(C_SIZE):
     if c != 0:
@@ -151,7 +152,7 @@ for c in range(C_SIZE):
         e.set()
 
     if c * 100 / C_SIZE >= persentage:
-        print(persentage, "% finished", sep='')
+        print("#", sep='', end='')
         persentage += 10
 
     if print_steps:
@@ -173,6 +174,7 @@ for c in range(C_SIZE):
         x.start()
 
 x.join()
+print()
 print("всего клиентов - {}, отклонено - {}, обслужено - {}".format(num_of_served + num_of_rejected,
                                                                    num_of_rejected, num_of_served))
 print(
@@ -210,5 +212,5 @@ print("Среднее время ожидания                               
 print("Нет клиентов на 1 стуле                              ", (1 - P_denial))
 print("Нет клиентов на 2 стуле                              ", P_no_clients_second_chair)
 print()
-print("speedX: ", speed_x, "\nPossible error: ", int(sa.get_expected_accurasy(speed_x) * 100), "%")
+print("speedX: ", speed_x, "\nPossible error: ", 100 - int(sa.get_expected_accurasy(speed_x) * 100), "%")
 

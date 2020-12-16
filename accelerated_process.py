@@ -3,13 +3,13 @@ import time
 import random
 import speedx_accurasy as sa
 
-C_SIZE = 1000
+C_SIZE = 400
 served = False
 checked = False
 uptime = False
 
 # settings
-speed_x = 100
+speed_x = 70
 print_steps = False
 
 logger_dict = {
@@ -125,16 +125,17 @@ e = threading.Event()
 
 lmb = 1 / 2
 
-_lambda = random.expovariate(lmb)
-_ksi1 = random.expovariate(lmb)
-_ksi2 = random.expovariate(lmb)
+# _lambda = random.expovariate(lmb) / speed_x
+# _ksi1 = random.expovariate(lmb) / speed_x
+# _ksi2 = random.expovariate(lmb) / speed_x
 
 _lambda = 0.5 / speed_x
 _ksi1 = 0.7 / speed_x
 _ksi2 = 1.4 / speed_x
 
 print('интенсивность поступления заявок - {}, интенсивность обслуживания(1 стул) - {},'
-      ' интенсивность обслуживания(2 стул) - {}'.format(_lambda, _ksi1, _ksi2))
+      ' интенсивность обслуживания(2 стул) - {}'.format(_lambda * speed_x, _ksi1 * speed_x,
+                                                        _ksi2 * speed_x))
 
 num_of_rejected = 0
 num_of_served = 0
@@ -180,9 +181,9 @@ print("всего клиентов - {}, отклонено - {}, обслуже
 print(
     "id| entrance_time_first | time_on_the_first_chair |  time_in_queue | "
     "entrance_time_second | time_on_the_second_chair | exit_time")
-
-for k in logger_list:
-    print(k.give_info())
+if print_steps:
+    for k in logger_list:
+        print(k.give_info())
 
 
 mean_time_in_system = 0

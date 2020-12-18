@@ -1,11 +1,16 @@
 import threading
 import time
 import random
+import speedx_accurasy as sa
 
-C_SIZE = 7
+C_SIZE = 400
 served = False
 checked = False
 uptime = False
+
+# settings
+speed_x = 70
+print_steps = False
 
 logger_dict = {
     'Entrance time': [],
@@ -17,6 +22,9 @@ logger_dict = {
 
 logger_list = []
 
+message = ""
+if speed_x:
+    message = "hello"
 
 class Client:
     id = None
@@ -60,7 +68,8 @@ def serving(client, chair1, chair2):
     end = time.time()
     client.time_in_queue = end - start
     e.clear()
-    print("client - {}, time in queue {}".format(client.id, client.time_in_queue))
+    if print_steps:
+        print("client - {}, time in queue {}".format(client.id, client.time_in_queue))
     chair1.is_busy = False
     chair2.serving2(client)
     # client.exit_time = client.entrance_time_second + client.time_on_the_second_chair
@@ -79,20 +88,24 @@ class Chair:
 
     def serving1(self, client):
         self.is_busy = True
-        print('start serving client', client.id, 'on first', " in ", client.entrance_time_first, "\n")
+        if print_steps:
+            print('start serving client', client.id, 'on first', " in ", client.entrance_time_first, "\n")
         time.sleep(_ksi1)
         client.time_on_the_first_chair = _ksi1
-        print("client {} is served on first, total time - {}".format(client.id, client.time_on_the_first_chair))
+        if print_steps:
+            print("client {} is served on first, total time - {}".format(client.id, client.time_on_the_first_chair))
         # self.is_busy = False
         return
 
     def serving2(self, client):
         self.is_busy = True
         client.entrance_time_second = client.entrance_time_first + client.time_on_the_first_chair + client.time_in_queue
-        print('start serving client', client.id, ' on second', " in ", client.entrance_time_second)
+        if print_steps:
+            print('start serving client', client.id, ' on second', " in ", client.entrance_time_second)
         time.sleep(_ksi2)
         client.time_on_the_second_chair = _ksi2
-        print("client {} is served on second, total time - {}".format(client.id, client.time_on_the_second_chair))
+        if print_steps:
+            print("client {} is served on second, total time - {}".format(client.id, client.time_on_the_second_chair))
         client.exit_time = client.entrance_time_second + client.time_on_the_second_chair
         self.is_busy = False
         return
@@ -112,22 +125,25 @@ e = threading.Event()
 
 lmb = 1 / 2
 
-_lambda = random.expovariate(lmb)
-_ksi1 = random.expovariate(lmb)
-_ksi2 = random.expovariate(lmb)
+# _lambda = random.expovariate(lmb) / speed_x
+# _ksi1 = random.expovariate(lmb) / speed_x
+# _ksi2 = random.expovariate(lmb) / speed_x
 
-_lambda = 0.5
-_ksi1 = 0.7
-_ksi2 = 1.4
+_lambda = 0.5 / speed_x
+_ksi1 = 0.7 / speed_x
+_ksi2 = 1.4 / speed_x
 
 print('интенсивность поступления заявок - {}, интенсивность обслуживания(1 стул) - {},'
-      ' интенсивность обслуживания(2 стул) - {}'.format(_lambda, _ksi1, _ksi2))
+      ' интенсивность обслуживания(2 стул) - {}'.format(_lambda * speed_x, _ksi1 * speed_x,
+                                                        _ksi2 * speed_x))
 
 num_of_rejected = 0
 num_of_served = 0
 
 program_start = time.time()
 time_lambda=time.time()
+persentage = 10
+print("|    |50%|")
 
 for c in range(C_SIZE):
     if c != 0:
@@ -135,11 +151,18 @@ for c in range(C_SIZE):
         time_lambda = time.time()
     else:
         e.set()
-    print("got new client! cur time = ", time_lambda-program_start )
+
+    if c * 100 / C_SIZE >= persentage:
+        print("#", sep='', end='')
+        persentage += 10
+
+    if print_steps:
+        print("got new client! cur time = ", time_lambda-program_start )
 
     if chair1.is_busy:
         num_of_rejected += 1
-        print("client rejected chair is busy")
+        if print_steps:
+            print("client rejected chair is busy")
     else:
         num_of_served += 1
         # clients.append(Client(gl_id, timer))
@@ -152,10 +175,43 @@ for c in range(C_SIZE):
         x.start()
 
 x.join()
+print()
 print("всего клиентов - {}, отклонено - {}, обслужено - {}".format(num_of_served + num_of_rejected,
                                                                    num_of_rejected, num_of_served))
 print(
     "id| entrance_time_first | time_on_the_first_chair |  time_in_queue | "
     "entrance_time_second | time_on_the_second_chair | exit_time")
+if print_steps:
+    for k in logger_list:
+        print(k.give_info())
+
+
+mean_time_in_system = 0
+P_denial = 0
+P_wait = 0
+mean_wait_time = 0
+
 for k in logger_list:
-    print(k.give_info())
+    mean_time_in_system += _ksi1 + _ksi2 + k.give_info()[3]
+    if k.give_info()[3] != 0:
+        P_wait += 1
+    mean_wait_time += k.give_info()[3]
+
+
+mean_time_in_system /= num_of_served
+P_denial = len(logger_list) * _ksi1 / logger_list[-1].give_info()[-1]
+P_wait /= num_of_served
+mean_wait_time /= num_of_served
+P_no_clients_second_chair = len(logger_list) * _ksi2 / logger_list[-1].give_info()[-1]
+
+print()
+print("Среднее время в системе (1 стул - очередь - 2 стул)  ", mean_time_in_system * speed_x)
+print("Занятость 1 стула                                    ", P_denial)
+print("Отказов                                              ", num_of_rejected / (num_of_rejected + num_of_served))
+print("Ожидающих клиентов                                   ", P_wait)
+print("Среднее время ожидания                               ", mean_wait_time * speed_x)
+print("Нет клиентов на 1 стуле                              ", (1 - P_denial))
+print("Нет клиентов на 2 стуле                              ", P_no_clients_second_chair)
+print()
+print("speedX: ", speed_x, "\nPossible error: ", 100 - int(sa.get_expected_accurasy(speed_x) * 100), "%")
+

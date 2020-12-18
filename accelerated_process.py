@@ -3,24 +3,19 @@ import time
 import random
 import speedx_accurasy as sa
 
-# import numpy as np
+import numpy as np
 
-C_SIZE = 100
+C_SIZE = 50
 served = False
 checked = False
 uptime = False
 
 # settings
-speed_x = 20
-print_steps = False
-
-logger_dict = {
-    'Entrance time': [],
-    'Exit time': [],
-    'Time on the first chair': [],
-    'Time in queue': [],
-    'Time on the second chair': []
-}
+speed_x = 1
+print_steps = 0
+time_in_Q = 0
+zero_ppl_s = 0
+zero_ppl_e = 0
 
 logger_list = []
 
@@ -55,6 +50,12 @@ cur_clients = {
 
 
 def serving(client, chair1, chair2):
+    global time_in_Q
+    global zero_ppl_s
+    global zero_ppl_e
+    if zero_ppl_s != 0:
+        zero_ppl_s = time.time() - zero_ppl_s
+        zero_ppl_s = 0
     chair1.serving1(client)
 
     # if chair2.is_busy:
@@ -77,6 +78,9 @@ def serving(client, chair1, chair2):
     chair2.serving2(client)
     # client.exit_time = client.entrance_time_second + client.time_on_the_second_chair
     logger_list.append(client)
+    time_in_Q += client.time_in_queue
+    if not chair1.is_busy:
+        zero_ppl_s = time.time()
     e.set()
     return
 
@@ -90,6 +94,7 @@ class Chair:
         pass
 
     def serving1(self, client):
+        _ksi1 = random.expovariate(1 / nu1/ speed_x)
         self.is_busy = True
         if print_steps:
             print('start serving client', client.id, 'on first', " in ", client.entrance_time_first, "\n")
@@ -101,6 +106,7 @@ class Chair:
         return
 
     def serving2(self, client):
+        _ksi2 = random.expovariate(1 / nu2/ speed_x)
         self.is_busy = True
         client.entrance_time_second = client.entrance_time_first + client.time_on_the_first_chair + client.time_in_queue
         if print_steps:
@@ -121,7 +127,7 @@ Added = False
 
 clients = []
 timer = 0
-gl_id = 1
+gl_id = 0
 e = threading.Event()
 
 ### init vars
@@ -132,9 +138,13 @@ lmb = 1 / 2
 # _ksi1 = random.expovariate(lmb) / speed_x
 # _ksi2 = random.expovariate(lmb) / speed_x
 
-_lambda = 2 / speed_x
-_ksi1 = 1.42 / speed_x
-_ksi2 = 0.71 / speed_x
+lm = 0.5
+nu1 = 0.7
+nu2 = 1.4
+
+_lambda = 4 / speed_x
+_ksi1 = 1 / speed_x
+_ksi2 = 1 / speed_x
 
 print('интенсивность поступления заявок - {}, интенсивность обслуживания(1 стул) - {},'
       ' интенсивность обслуживания(2 стул) - {}'.format(_lambda * speed_x, _ksi1 * speed_x,
@@ -154,6 +164,7 @@ for c in range(C_SIZE):
         persentage += 10
 
     if c != 0:
+        _lambda = np.random.poisson(1 / lm / speed_x)
         time.sleep(_lambda)  # waiting for client
         time_lambda = time.time()
     else:
@@ -175,6 +186,8 @@ for c in range(C_SIZE):
 
 x.join()
 program_end = time.time()
+print("QQQQQQ TIME = ", time_in_Q / (program_end - program_start))
+print("ZERO TIME = ", zero_ppl_s / (program_end - program_start))
 print()
 print("всего клиентов - {}, отклонено - {}, обслужено - {}".format(num_of_served + num_of_rejected,
                                                                    num_of_rejected, num_of_served))

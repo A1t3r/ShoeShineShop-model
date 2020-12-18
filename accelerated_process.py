@@ -5,14 +5,24 @@ import speedx_accurasy as sa
 
 import numpy as np
 
-C_SIZE = 50
+random.seed(1)
+
+log_dict={
+    (0,0):0,
+    (1,0):0,
+    (0,1):0,
+    (1,1):0,
+    ('b',1):0,
+}
+
+C_SIZE = 10
 served = False
 checked = False
 uptime = False
 
 # settings
 speed_x = 1
-print_steps = 0
+print_steps = 1
 time_in_Q = 0
 zero_ppl_s = 0
 zero_ppl_e = 0
@@ -58,19 +68,19 @@ def serving(client, chair1, chair2):
         zero_ppl_s = 0
     chair1.serving1(client)
 
-    # if chair2.is_busy:
-    #    print("client", client.id, "is waiting for second chair")
-    #    start = time.time()
+    if chair2.is_busy:
+         print("client", client.id, "is waiting for second chair")
+         start = time.time()
     ###
-    #     e.wait()
-    #     print("client", client.id, "is no longer waiting")
-    #     end = time.time()
-    #     client.time_in_queue = end - start
-    #      print("client - {}, time in queue {}".format(client.id, client.time_in_queue))
-    start = time.time()
-    e.wait()
-    end = time.time()
-    client.time_in_queue = end - start
+         e.wait()
+         print("client", client.id, "is no longer waiting")
+         end = time.time()
+         client.time_in_queue = end - start
+         print("client - {}, time in queue {}".format(client.id, client.time_in_queue))
+   # start = time.time()
+   # e.wait()
+   # end = time.time()
+   # client.time_in_queue = end - start
     e.clear()
     if print_steps:
         print("client - {}, time in queue {}".format(client.id, client.time_in_queue))
@@ -94,7 +104,10 @@ class Chair:
         pass
 
     def serving1(self, client):
-        _ksi1 = random.expovariate(1 / nu1/ speed_x)
+        global _ksi1
+        #_ksi1 = np.random.exponential(1/nu1)
+        _ksi1 = random.expovariate(nu1)
+        print('1-',_ksi1)
         self.is_busy = True
         if print_steps:
             print('start serving client', client.id, 'on first', " in ", client.entrance_time_first, "\n")
@@ -106,7 +119,10 @@ class Chair:
         return
 
     def serving2(self, client):
-        _ksi2 = random.expovariate(1 / nu2/ speed_x)
+        global _ksi2
+       # _ksi2 = np.random.exponential(1/nu2)
+        _ksi2 = random.expovariate(nu2)
+        print('2-',_ksi2)
         self.is_busy = True
         client.entrance_time_second = client.entrance_time_first + client.time_on_the_first_chair + client.time_in_queue
         if print_steps:
@@ -139,16 +155,16 @@ lmb = 1 / 2
 # _ksi2 = random.expovariate(lmb) / speed_x
 
 lm = 0.5
-nu1 = 0.7
-nu2 = 1.4
+nu1 = (9/10)
+nu2 = 0.2
 
-_lambda = 4 / speed_x
-_ksi1 = 1 / speed_x
-_ksi2 = 1 / speed_x
+_lambda = 1
+_ksi1 = 1
+_ksi2 = 1
 
-print('интенсивность поступления заявок - {}, интенсивность обслуживания(1 стул) - {},'
-      ' интенсивность обслуживания(2 стул) - {}'.format(_lambda * speed_x, _ksi1 * speed_x,
-                                                        _ksi2 * speed_x))
+#print('интенсивность поступления заявок - {}, интенсивность обслуживания(1 стул) - {},'
+#      ' интенсивность обслуживания(2 стул) - {}'.format(_lambda * speed_x, _ksi1 * speed_x,
+#                                                        _ksi2 * speed_x))
 
 num_of_rejected = 0
 num_of_served = 0
@@ -159,12 +175,16 @@ persentage = 10
 print("|       |")
 
 for c in range(C_SIZE):
+    random.seed()
     if c * 100 // C_SIZE >= persentage:
         print("#", sep='', end='')
         persentage += 10
 
     if c != 0:
-        _lambda = np.random.poisson(1 / lm / speed_x)
+        #_lambda = random.expovariate(lm)
+        _lambda = np.random.poisson(1/lm)
+        print("lmb", _lambda)
+       # _lambda = np.random.gamma(lm)
         time.sleep(_lambda)  # waiting for client
         time_lambda = time.time()
     else:
@@ -186,6 +206,7 @@ for c in range(C_SIZE):
 
 x.join()
 program_end = time.time()
+tot_time=program_end-program_start
 print("QQQQQQ TIME = ", time_in_Q / (program_end - program_start))
 print("ZERO TIME = ", zero_ppl_s / (program_end - program_start))
 print()
@@ -199,6 +220,36 @@ if print_steps:
 if print_steps:
     for k in logger_list:
         print(k.give_info())
+
+for i in range(len(logger_list)):
+    if(i==0):
+        log_dict[(1,0)]+=logger_list[i].time_on_the_first_chair
+    elif (i == len(logger_list) - 1):
+        break
+    elif(logger_list[i].entrance_time_first>logger_list[i-1].exit_time):
+        log_dict[(1, 0)] += logger_list[i].time_on_the_first_chair
+
+    #if(logger_list[i].entrance_time_second<logger_list[i+1].entrance_time_first):
+
+    if(logger_list[i+1].entrance_time_first + logger_list[i+1].time_on_the_first_chair < logger_list[i].exit_time):
+        tmp = logger_list[i + 1].time_on_the_first_chair + logger_list[i + 1].entrance_time_first - logger_list[i].exit_time
+        if(tmp<0):
+            log_dict[(0,1)]+=logger_list[i].time_on_the_second_chair
+        else:
+            
+            log_dict[(1,1)]+=logger_list[i+1].time_on_the_first_chair
+    elif logger_list[i + 1].entrance_time_first<logger_list[i].exit_time:
+        tmp = logger_list[i + 1].time_on_the_first_chair+logger_list[i+1].entrance_time_first-logger_list[i].exit_time
+        log_dict[(1, 0)] += tmp
+        log_dict[(1,1)]+=logger_list[i + 1].time_on_the_first_chair-tmp
+    else:
+        log_dict[(0,1)]+=logger_list[i].time_on_the_second_chair
+        log_dict[(0,0)]+=logger_list[i+1].entrance_time_first-logger_list[i].exit_time
+
+print("TRUE RES")
+for i in log_dict.values():
+    print(i)
+   # print(i/tot_time)
 
 mean_time_in_system = 0
 P_denial = 0
@@ -214,6 +265,7 @@ for k in logger_list:
     mean_wait_time += k.give_info()[3]
     first_chair_entrances.append(k.give_info()[1])
     second_chair_entrances.append(k.give_info()[4])
+
 
 sset1 = []
 sset2 = []

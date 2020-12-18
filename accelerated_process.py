@@ -2,15 +2,16 @@ import threading
 import time
 import random
 import speedx_accurasy as sa
-import numpy as np
 
-C_SIZE = 400
+# import numpy as np
+
+C_SIZE = 100
 served = False
 checked = False
 uptime = False
 
 # settings
-speed_x = 70
+speed_x = 20
 print_steps = False
 
 logger_dict = {
@@ -19,13 +20,6 @@ logger_dict = {
     'Time on the first chair': [],
     'Time in queue': [],
     'Time on the second chair': []
-}
-
-mean_state_time_dict = {
-    (1, 0): 0,
-    (0, 1): 0,
-    (1, 1): 0,
-    ('b', 1): 0
 }
 
 logger_list = []
@@ -138,9 +132,9 @@ lmb = 1 / 2
 # _ksi1 = random.expovariate(lmb) / speed_x
 # _ksi2 = random.expovariate(lmb) / speed_x
 
-_lambda = 0.5 / speed_x
-_ksi1 = 0.7 / speed_x
-_ksi2 = 1.4 / speed_x
+_lambda = 2 / speed_x
+_ksi1 = 1.42 / speed_x
+_ksi2 = 0.71 / speed_x
 
 print('интенсивность поступления заявок - {}, интенсивность обслуживания(1 стул) - {},'
       ' интенсивность обслуживания(2 стул) - {}'.format(_lambda * speed_x, _ksi1 * speed_x,
@@ -152,18 +146,18 @@ num_of_served = 0
 program_start = time.time()
 time_lambda = time.time()
 persentage = 10
-print("|    |50%|")
+print("|       |")
 
 for c in range(C_SIZE):
+    if c * 100 // C_SIZE >= persentage:
+        print("#", sep='', end='')
+        persentage += 10
+
     if c != 0:
         time.sleep(_lambda)  # waiting for client
         time_lambda = time.time()
     else:
         e.set()
-
-    if c * 100 / C_SIZE >= persentage:
-        print("#", sep='', end='')
-        persentage += 10
 
     if print_steps:
         print("got new client! cur time = ", time_lambda - program_start)
@@ -184,9 +178,11 @@ program_end = time.time()
 print()
 print("всего клиентов - {}, отклонено - {}, обслужено - {}".format(num_of_served + num_of_rejected,
                                                                    num_of_rejected, num_of_served))
-print(
-    "id| entrance_time_first | time_on_the_first_chair |  time_in_queue | "
-    "entrance_time_second | time_on_the_second_chair | exit_time")
+
+if print_steps:
+    print(
+        "id| entrance_time_first | time_on_the_first_chair |  time_in_queue | "
+        "entrance_time_second | time_on_the_second_chair | exit_time")
 if print_steps:
     for k in logger_list:
         print(k.give_info())
@@ -195,18 +191,34 @@ mean_time_in_system = 0
 P_denial = 0
 P_wait = 0
 mean_wait_time = 0
+first_chair_entrances = []
+second_chair_entrances = []
 
 for k in logger_list:
     mean_time_in_system += _ksi1 + _ksi2 + k.give_info()[3]
     if k.give_info()[3] != 0:
         P_wait += 1
     mean_wait_time += k.give_info()[3]
+    first_chair_entrances.append(k.give_info()[1])
+    second_chair_entrances.append(k.give_info()[4])
 
+sset1 = []
+sset2 = []
+for item in first_chair_entrances:
+    sset1.append(tuple((item, item + _ksi1)))
+
+for item in second_chair_entrances:
+    sset2.append(tuple((item, item + _ksi2)))
+
+system_work_time = logger_list[-1].give_info()[-1]
+matrix = sa.get_segment_intersection(sset1, sset2, system_work_time)
+t_b_1 = mean_wait_time / system_work_time
+matrix[0][1] -= t_b_1
 mean_time_in_system /= num_of_served
-P_denial = len(logger_list) * _ksi1 / logger_list[-1].give_info()[-1]
+P_denial = len(logger_list) * _ksi1 / system_work_time
 P_wait /= num_of_served
 mean_wait_time /= num_of_served
-P_no_clients_second_chair = len(logger_list) * _ksi2 / logger_list[-1].give_info()[-1]
+P_no_clients_second_chair = len(logger_list) * _ksi2 / system_work_time
 
 print()
 print("Среднее время в системе (1 стул - очередь - 2 стул)  ", mean_time_in_system * speed_x)
@@ -216,5 +228,12 @@ print("Ожидающих клиентов                                   ", 
 print("Среднее время ожидания                               ", mean_wait_time * speed_x)
 print("Нет клиентов на 1 стуле                              ", (1 - P_denial))
 print("Нет клиентов на 2 стуле                              ", P_no_clients_second_chair)
-print()
-print("speedX: ", speed_x, "\nPossible error: ", 100 - int(sa.get_expected_accurasy(speed_x) * 100), "%")
+print("-----------------------------------------------------------")
+print("(0, 0)                                               ", matrix[0][0])
+print("(0, 1)                                               ", matrix[0][1])
+print("(1, 0)                                               ", matrix[1][0])
+print("(1, 1)                                               ", matrix[1][1])
+print("(b, 1)                                               ", t_b_1)
+print("-----------------------------------------------------------")
+print("Проверка суммой (==1): ", matrix[0][0] + matrix[0][1] + matrix[1][0] + matrix[1][1] + t_b_1)
+print("speedX: ", speed_x, "\nMean min speedX error: ", 100 - int(sa.get_expected_accurasy(speed_x) * 10000) / 100, "%")

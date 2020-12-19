@@ -15,7 +15,7 @@ log_dict={
     ('b',1):0,
 }
 
-C_SIZE = 10
+C_SIZE = 50
 served = False
 checked = False
 uptime = False
@@ -28,10 +28,6 @@ zero_ppl_s = 0
 zero_ppl_e = 0
 
 logger_list = []
-
-message = ""
-if speed_x:
-    message = "hello"
 
 
 class Client:
@@ -154,9 +150,9 @@ lmb = 1 / 2
 # _ksi1 = random.expovariate(lmb) / speed_x
 # _ksi2 = random.expovariate(lmb) / speed_x
 
-lm = 0.5
-nu1 = (9/10)
-nu2 = 0.2
+lm = (0.5)
+nu1 = (0.7)
+nu2 = (1.4)
 
 _lambda = 1
 _ksi1 = 1
@@ -269,11 +265,18 @@ for k in logger_list:
 
 sset1 = []
 sset2 = []
+id = 0
 for item in first_chair_entrances:
-    sset1.append(tuple((item, item + _ksi1)))
+    sset1.append(tuple((item, item + logger_list[id].give_info()[2])))
+    id += 1
 
+id = 0
 for item in second_chair_entrances:
-    sset2.append(tuple((item, item + _ksi2)))
+    sset2.append(tuple((item, item + logger_list[id].give_info()[-2])))
+    id += 1
+
+print(sset1)
+print(sset2)
 
 system_work_time = logger_list[-1].give_info()[-1]
 matrix = sa.get_segment_intersection(sset1, sset2, system_work_time)
